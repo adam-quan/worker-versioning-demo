@@ -1,0 +1,53 @@
+# Template for ONE Worker Deployment Version.
+#
+# The key idea: each Build ID gets its own Kubernetes Deployment
+# (worker-$BUILD_ID) rather than a rolling update of a shared one. Old
+# versions must keep running to serve PINNED workflows that started on them;
+# a rolling update would kill exactly the workers those runs need.
+#
+# Rendered by scripts/deploy-version.sh with envsubst.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: worker-${BUILD_ID}
+  namespace: temporal-demo
+  labels:
+    app: greeting-worker
+    temporal-deployment: ${DEPLOYMENT_NAME}
+    build-id: ${BUILD_ID}
+spec:
+  replicas: ${REPLICAS}
+  selector:
+    matchLabels:
+      app: greeting-worker
+      build-id: ${BUILD_ID}
+  template:
+    metadata:
+      labels:
+        app: greeting-worker
+        temporal-deployment: ${DEPLOYMENT_NAME}
+        build-id: ${BUILD_ID}
+    spec:
+      # Give in-flight activities time to finish before the pod is killed.
+      terminationGracePeriodSeconds: 45
+      containers:
+        - name: worker
+          image: ${IMAGE}
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: TEMPORAL_ADDRESS
+              value: temporal.temporal-demo.svc.cluster.local:7233
+            - name: TEMPORAL_NAMESPACE
+              value: default
+            - name: TEMPORAL_TASK_QUEUE
+              value: ${TASK_QUEUE}
+            - name: TEMPORAL_DEPLOYMENT_NAME
+              value: ${DEPLOYMENT_NAME}
+            - name: TEMPORAL_BUILD_ID
+              value: ${BUILD_ID}
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              memory: 512Mi

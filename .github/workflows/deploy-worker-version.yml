@@ -1,0 +1,124 @@
+name: Deploy Worker Version
+
+# Every push that touches worker code produces a new Worker Deployment Version.
+# The Build ID is the commit SHA, so "which code is this version running?" is
+# always answerable by `git show <build-id>`.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "worker/**"
+      - "k8s/**"
+      - "scripts/deploy-version.sh"
+      - ".github/workflows/deploy-worker-version.yml"
+  workflow_dispatch:
+    inputs:
+      strategy:
+        description: "How to shift traffic onto the new version"
+        type: choice
+        required: false
+        default: progressive
+        options:
+          - progressive # staged ramp with a health gate at each step
+          - immediate # straight to 100%; use when rolling forward off a bad version
+      steps:
+        description: "Progressive only: ramp percentages to walk through"
+        required: false
+        default: "5,25,50"
+      bake_seconds:
+        description: "Progressive only: seconds to observe at each step before the health check"
+        required: false
+        default: "60"
+      max_failures:
+        description: "Progressive only: failed executions on the new version tolerated per step"
+        required: false
+        default: "0"
+      cleanup:
+        description: "Also delete Kubernetes Deployments for versions that have fully drained"
+        type: boolean
+        required: false
+        default: false
+
+concurrency:
+  # Never let two promotions race; a half-applied routing change is confusing
+  # to debug and can leave the wrong version Current.
+  group: worker-version-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    # minikube runs on the machine hosting the runner, so this must be a
+    # self-hosted runner with minikube, kubectl, docker and envsubst available.
+    # See README "Running this for real" for the runner setup.
+    runs-on: self-hosted
+
+    env:
+      DEPLOYMENT_NAME: greeting-worker
+      TASK_QUEUE: greeting-tq
+      K8S_NAMESPACE: temporal-demo
+      REPLICAS: "2"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compute Build ID
+        id: build
+        run: |
+          # Short SHA: unique per commit, and traceable back to the code.
+          BUILD_ID="$(git rev-parse --short=7 HEAD)"
+          echo "build_id=${BUILD_ID}" >> "$GITHUB_OUTPUT"
+          echo "Build ID: ${BUILD_ID}"
+
+      - name: Check cluster is reachable
+        run: |
+          minikube status
+          kubectl get nodes
+          # Fail early with a clear message rather than midway through a deploy.
+          kubectl rollout status -n "$K8S_NAMESPACE" deployment/temporal --timeout=120s
+
+      - name: Deploy new Worker Deployment Version
+        run: |
+          # A plain `push` supplies no inputs, so fall back to the progressive
+          # defaults -- that is the path this pipeline takes normally.
+          STRATEGY="${{ github.event.inputs.strategy }}"
+          STEPS="${{ github.event.inputs.steps }}"
+          BAKE="${{ github.event.inputs.bake_seconds }}"
+          MAX_FAILURES="${{ github.event.inputs.max_failures }}"
+
+          if [ "${STRATEGY:-progressive}" = "immediate" ]; then
+            scripts/deploy-version.sh "${{ steps.build.outputs.build_id }}"
+          else
+            scripts/progressive-rollout.sh "${{ steps.build.outputs.build_id }}" \
+              --steps "${STEPS:-5,25,50}" \
+              --bake "${BAKE:-60}" \
+              --max-failures "${MAX_FAILURES:-0}"
+          fi
+
+      - name: Clean up drained versions
+        if: github.event.inputs.cleanup == 'true'
+        run: scripts/cleanup-drained.sh
+
+      - name: Summary
+        if: always()
+        run: |
+          BUILD_ID="${{ steps.build.outputs.build_id }}"
+          STRATEGY="${{ github.event.inputs.strategy }}"
+          STEPS="${{ github.event.inputs.steps }}"
+          {
+            echo "## Worker Deployment Version \`${BUILD_ID}\`"
+            echo
+            if [ "${STRATEGY:-progressive}" = "immediate" ]; then
+              echo "Strategy: **immediate** — promoted straight to Current."
+            else
+              echo "Strategy: **progressive** — ramped through \`${STEPS:-5,25,50}\`%, health-checked at each step, then promoted to Current."
+              echo
+              echo "If a step had failed, the ramp would have been removed and new executions would have stayed on the previous version."
+            fi
+            echo
+            echo "Workflows already running on older versions are unaffected:"
+            echo "\`GreetingWorkflow\` is PINNED, so those runs finish on the version that started them."
+            echo
+            echo '```'
+            kubectl get deployments -n "$K8S_NAMESPACE" -l app=greeting-worker -L build-id 2>&1 || true
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
