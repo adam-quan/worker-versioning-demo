@@ -24,8 +24,8 @@ from workflows import GreetingWorkflow, HealthCheckWorkflow
 
 TEMPORAL_ADDRESS = os.environ.get("TEMPORAL_ADDRESS", "localhost:7233")
 TEMPORAL_NAMESPACE = os.environ.get("TEMPORAL_NAMESPACE", "default")
-TASK_QUEUE = os.environ.get("TEMPORAL_TASK_QUEUE", "greeting-tq")
-DEPLOYMENT_NAME = os.environ.get("TEMPORAL_DEPLOYMENT_NAME", "greeting-worker")
+TASK_QUEUE = os.environ.get("TEMPORAL_TASK_QUEUE", "versioning-greeting-tq")
+DEPLOYMENT_NAME = os.environ.get("TEMPORAL_DEPLOYMENT_NAME", "versioning-greeting-worker")
 BUILD_ID = os.environ.get("TEMPORAL_BUILD_ID")
 
 

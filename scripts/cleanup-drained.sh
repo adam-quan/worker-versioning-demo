@@ -18,7 +18,7 @@ DRY_RUN=""
 # Avoid `mapfile`: stock macOS still ships bash 3.2, and a self-hosted runner
 # may well use it.
 build_ids="$(
-  kubectl get deployments -n "$NAMESPACE" -l app=greeting-worker \
+  kubectl get deployments -n "$NAMESPACE" -l app=versioning-greeting-worker \
     -o jsonpath='{range .items[*]}{.metadata.labels.build-id}{"\n"}{end}' | sort -u
 )"
 

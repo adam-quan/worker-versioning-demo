@@ -12,7 +12,7 @@ tcli worker deployment describe --name "$DEPLOYMENT_NAME"
 echo
 echo "=== Per-version drainage ==="
 printf '%-20s %-12s %s\n' "BUILD ID" "DRAINAGE" "MEANING"
-kubectl get deployments -n "$NAMESPACE" -l app=greeting-worker \
+kubectl get deployments -n "$NAMESPACE" -l app=versioning-greeting-worker \
   -o jsonpath='{range .items[*]}{.metadata.labels.build-id}{"\n"}{end}' | sort -u |
 while read -r build_id; do
   [[ -z "$build_id" ]] && continue
@@ -33,4 +33,4 @@ done
 
 echo
 echo "=== Kubernetes ==="
-kubectl get deployments -n "$NAMESPACE" -l app=greeting-worker -L build-id
+kubectl get deployments -n "$NAMESPACE" -l app=versioning-greeting-worker -L build-id

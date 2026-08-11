@@ -53,9 +53,9 @@ jobs:
     runs-on: self-hosted
 
     env:
-      DEPLOYMENT_NAME: greeting-worker
-      TASK_QUEUE: greeting-tq
-      K8S_NAMESPACE: temporal-demo
+      DEPLOYMENT_NAME: versioning-greeting-worker
+      TASK_QUEUE: versioning-greeting-tq
+      K8S_NAMESPACE: temporal-versioning-demo
       REPLICAS: "2"
 
     steps:
@@ -119,6 +119,6 @@ jobs:
             echo "\`GreetingWorkflow\` is PINNED, so those runs finish on the version that started them."
             echo
             echo '```'
-            kubectl get deployments -n "$K8S_NAMESPACE" -l app=greeting-worker -L build-id 2>&1 || true
+            kubectl get deployments -n "$K8S_NAMESPACE" -l app=versioning-greeting-worker -L build-id 2>&1 || true
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"

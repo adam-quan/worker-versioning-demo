@@ -3,9 +3,9 @@
 # Shared configuration and helpers. Sourced by the other scripts; not run
 # directly.
 
-DEPLOYMENT_NAME="${DEPLOYMENT_NAME:-greeting-worker}"
-TASK_QUEUE="${TASK_QUEUE:-greeting-tq}"
-NAMESPACE="${K8S_NAMESPACE:-temporal-demo}"
+DEPLOYMENT_NAME="${DEPLOYMENT_NAME:-versioning-greeting-worker}"
+TASK_QUEUE="${TASK_QUEUE:-versioning-greeting-tq}"
+NAMESPACE="${K8S_NAMESPACE:-temporal-versioning-demo}"
 REPLICAS="${REPLICAS:-2}"
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -78,5 +78,5 @@ print_state() {
   tcli worker deployment describe --name "$DEPLOYMENT_NAME"
   echo
   echo "==> Worker Deployments running in Kubernetes"
-  kubectl get deployments -n "$NAMESPACE" -l app=greeting-worker -L build-id
+  kubectl get deployments -n "$NAMESPACE" -l app=versioning-greeting-worker -L build-id
 }

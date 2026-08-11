@@ -44,7 +44,7 @@ worker = Worker(
     activities=[compose_greeting, record_result],
     deployment_config=WorkerDeploymentConfig(
         version=WorkerDeploymentVersion(
-            deployment_name=DEPLOYMENT_NAME,   # "greeting-worker"
+            deployment_name=DEPLOYMENT_NAME,   # "versioning-greeting-worker"
             build_id=BUILD_ID,                 # "a1b2c3d"
         ),
         use_worker_versioning=True,
@@ -219,7 +219,7 @@ using the `TemporalWorkerDeploymentVersion` search attribute that the server
 stamps on every execution:
 
 ```
-TemporalWorkerDeploymentVersion='greeting-worker:a1b2c3d' AND ExecutionStatus='Failed'
+TemporalWorkerDeploymentVersion='versioning-greeting-worker:a1b2c3d' AND ExecutionStatus='Failed'
 ```
 
 So the gate measures the new code actually failing in production, not just
@@ -283,6 +283,7 @@ runner can reach.
 ## Cleanup
 
 ```bash
-kubectl delete namespace temporal-demo
+kubectl delete namespace temporal-versioning-demo
 minikube stop
+minikube delete --all --purge
 ```

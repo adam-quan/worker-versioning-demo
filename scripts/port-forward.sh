@@ -9,7 +9,7 @@
 # Runs in the foreground; Ctrl-C to stop.
 set -euo pipefail
 
-NAMESPACE="${K8S_NAMESPACE:-temporal-demo}"
+NAMESPACE="${K8S_NAMESPACE:-temporal-versioning-demo}"
 
 echo "Web UI:  http://localhost:8233"
 echo "gRPC:    localhost:7233"

@@ -18,7 +18,7 @@ from workflows import GreetingWorkflow, HealthCheckWorkflow
 
 TEMPORAL_ADDRESS = os.environ.get("TEMPORAL_ADDRESS", "localhost:7233")
 TEMPORAL_NAMESPACE = os.environ.get("TEMPORAL_NAMESPACE", "default")
-TASK_QUEUE = os.environ.get("TEMPORAL_TASK_QUEUE", "greeting-tq")
+TASK_QUEUE = os.environ.get("TEMPORAL_TASK_QUEUE", "versioning-greeting-tq")
 
 
 async def main() -> None:

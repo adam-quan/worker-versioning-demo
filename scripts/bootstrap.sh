@@ -3,7 +3,7 @@
 # One-time setup: start minikube and run a Temporal dev server inside it.
 set -euo pipefail
 
-NAMESPACE="${K8S_NAMESPACE:-temporal-demo}"
+NAMESPACE="${K8S_NAMESPACE:-temporal-versioning-demo}"
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 if ! minikube status >/dev/null 2>&1; then

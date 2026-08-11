@@ -10,21 +10,21 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: worker-${BUILD_ID}
-  namespace: temporal-demo
+  namespace: temporal-versioning-demo
   labels:
-    app: greeting-worker
+    app: versioning-greeting-worker
     temporal-deployment: ${DEPLOYMENT_NAME}
     build-id: ${BUILD_ID}
 spec:
   replicas: ${REPLICAS}
   selector:
     matchLabels:
-      app: greeting-worker
+      app: versioning-greeting-worker
       build-id: ${BUILD_ID}
   template:
     metadata:
       labels:
-        app: greeting-worker
+        app: versioning-greeting-worker
         temporal-deployment: ${DEPLOYMENT_NAME}
         build-id: ${BUILD_ID}
     spec:
@@ -36,7 +36,7 @@ spec:
           imagePullPolicy: IfNotPresent
           env:
             - name: TEMPORAL_ADDRESS
-              value: temporal.temporal-demo.svc.cluster.local:7233
+              value: temporal.temporal-versioning-demo.svc.cluster.local:7233
             - name: TEMPORAL_NAMESPACE
               value: default
             - name: TEMPORAL_TASK_QUEUE
