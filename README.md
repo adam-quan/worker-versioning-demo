@@ -13,17 +13,14 @@ A simple Temporal Python application that shows the integration of Temporal Work
 | [worker/workflows.py](worker/workflows.py) | The workflows. **Edit this to trigger the demo.** |
 | [worker/run_worker.py](worker/run_worker.py) | Worker entrypoint — where versioning is configured |
 | [worker/starter.py](worker/starter.py) | CLI to start / signal / inspect workflows |
-|  
 | [k8s/temporal-server.yaml](k8s/temporal-server.yaml) | A Temporal dev server for minikube |
 | [k8s/worker-deployment.template.yaml](k8s/worker-deployment.template.yaml) | One K8s Deployment per Build ID |
-|
 | [scripts/progressive-rollout.sh](scripts/progressive-rollout.sh) | **Staged ramp with health gates and rollback. What CI runs.** |
 | [scripts/deploy-version.sh](scripts/deploy-version.sh) | Straight to 100% — the unguarded manual path |
 | [scripts/common.sh](scripts/common.sh) | Shared helpers: build, deploy, query the server |
 | [scripts/port-forward.sh](scripts/port-forward.sh) | Reach the in-cluster server from your machine |
 | [scripts/cleanup-drained.sh](scripts/cleanup-drained.sh) | Retire versions nothing is pinned to any more — pods *and* server-side version |
 | [scripts/status.sh](scripts/status.sh) | Temporal's view and Kubernetes' view, side by side |
-|
 | [.github/workflows/deploy-worker-version.yml](.github/workflows/deploy-worker-version.yml) | The CI pipeline |
 
 ## How the versioning works
