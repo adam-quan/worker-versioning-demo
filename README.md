@@ -135,6 +135,28 @@ waits for those pods to poll, then ramps traffic onto the new version in
 stages — checking its health at each one — before promoting it to Current. See
 [Progressive rollout](#progressive-rollout) below.
 
+NOTE that you can pass custom push options to control the deployment behavor, 
+by supplying the pipeline inputs:
+
+```bash
+  STRATEGY="${{ github.event.inputs.strategy }}"
+  STEPS="${{ github.event.inputs.steps }}"
+  BAKE="${{ github.event.inputs.bake_seconds }}"
+  MAX_FAILURES="${{ github.event.inputs.max_failures }}"
+```
+
+So, if you want to perform an immdiate rollout, without ramping, you can run this instead:
+
+```bash
+git commit -am "change greeting" && git push -o strategy="immediate"
+```
+
+You can also tell the remote sever to skip running the pipeline:
+
+```bash
+git push -o ci.skip
+```
+
 Without github actions, you can the script locally to do the same thing:
 
 ```bash
@@ -199,6 +221,17 @@ minute between the last pinned workflow closing and the status flipping. The
 demo server shortens that interval on purpose — see the `--dynamic-config-value`
 flags in [k8s/temporal-server.yaml](k8s/temporal-server.yaml), which you should
 *not* carry into production.
+
+NOTE that we performed a cleanup from the Temporal server too. Without doing that, 
+the Temporal server automaticaly garbage collect drained versions too. When you 
+reach the maximum number of registered versions (e.g., 100 versions) in a worker 
+deployment, Temporal server checks the oldest drained version. If that version 
+has had no active pollers for the last 5 minutes, the server automatically deletes it.
+
+If you use the Temporal Worker Controller, it automatically detects deprecated versions, 
+scales them down, and cleans up the associated Kubernetes deployment resources once 
+they are drained.
+
 
 ## Progressive rollout
 
