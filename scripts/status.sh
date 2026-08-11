@@ -7,7 +7,7 @@ set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
 
 echo "=== Worker Deployment: ${DEPLOYMENT_NAME} ==="
-tcli worker deployment describe --name "$DEPLOYMENT_NAME"
+kcli worker deployment describe --name "$DEPLOYMENT_NAME"
 
 echo
 echo "=== Per-version drainage ==="
@@ -17,7 +17,7 @@ kubectl get deployments -n "$NAMESPACE" -l app=versioning-greeting-worker \
 while read -r build_id; do
   [[ -z "$build_id" ]] && continue
   status="$(
-    tcli worker deployment describe-version \
+    kcli worker deployment describe-version \
       --deployment-name "$DEPLOYMENT_NAME" --build-id "$build_id" -o json 2>/dev/null \
       | python3 -c 'import json,sys; print(json.load(sys.stdin)["drainageInfo"]["drainageStatus"])' \
       2>/dev/null || echo "unknown"

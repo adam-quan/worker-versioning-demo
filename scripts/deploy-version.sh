@@ -22,14 +22,14 @@ build_and_deploy "$BUILD_ID"
 
 if [[ -n "$RAMP" ]]; then
   echo "==> Ramping ${RAMP}% of new executions to ${BUILD_ID}"
-  tcli worker deployment set-ramping-version \
+  kcli worker deployment set-ramping-version \
     --deployment-name "$DEPLOYMENT_NAME" --build-id "$BUILD_ID" \
     --percentage "$RAMP" --yes
 else
   echo "==> Promoting ${BUILD_ID} to Current"
   # No --allow-no-pollers: if the new workers are not actually polling, the
   # server rejects the promotion and traffic stays on the old version.
-  tcli worker deployment set-current-version \
+  kcli worker deployment set-current-version \
     --deployment-name "$DEPLOYMENT_NAME" --build-id "$BUILD_ID" --yes
 fi
 

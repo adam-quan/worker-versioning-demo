@@ -2,7 +2,7 @@
 #
 # Progressively roll a new Worker Deployment Version into service.
 #
-#   scripts/progressive-rollout.sh <build-id> [--steps 5,25,50] [--bake 60]
+#   scripts/progressive-rollout.sh <build-id> [--steps 5,25,50] [--bake 30]
 #                                             [--max-failures 0] [--no-build]
 #
 # Instead of flipping 100% of new workflow executions onto a new version in one
@@ -23,7 +23,7 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
 
 BUILD_ID=""
 STEPS="${ROLLOUT_STEPS:-5,25,50}"
-BAKE="${ROLLOUT_BAKE_SECONDS:-60}"
+BAKE="${ROLLOUT_BAKE_SECONDS:-30}"
 MAX_FAILURES="${ROLLOUT_MAX_FAILURES:-0}"
 DO_BUILD=1
 
@@ -39,7 +39,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 [[ -n "$BUILD_ID" ]] || {
-  echo "usage: progressive-rollout.sh <build-id> [--steps 5,25,50] [--bake 60]" >&2
+  echo "usage: progressive-rollout.sh <build-id> [--steps 5,25,50] [--bake 30]" >&2
   exit 2
 }
 
@@ -54,7 +54,7 @@ rollback() {
   # percentage and leaves X installed as the ramping version, which stops it
   # ever reporting `drained` -- so cleanup-drained.sh could never retire it.
   # Deleting without a Build ID clears the slot properly.
-  tcli worker deployment set-ramping-version \
+  kcli worker deployment set-ramping-version \
     --deployment-name "$DEPLOYMENT_NAME" --delete --yes >&2 || true
   echo "   ramp removed; ${BUILD_ID} is receiving no new executions." >&2
   echo "   its pods are left running for executions already started on it." >&2
@@ -86,7 +86,7 @@ health_check() {
 
   # The version must still be polling; if every worker died the server would
   # keep routing this percentage into a black hole.
-  tcli worker deployment describe-version \
+  kcli worker deployment describe-version \
     --deployment-name "$DEPLOYMENT_NAME" --build-id "$BUILD_ID" >/dev/null 2>&1 \
     || rollback "at ${step}%, version is no longer registered with the server"
 
@@ -113,7 +113,7 @@ fi
 # deployment there is no Current version to split against, so there is nothing
 # to roll out progressively -- go straight to Current.
 current_build="$(
-  tcli worker deployment describe --name "$DEPLOYMENT_NAME" -o json 2>/dev/null \
+  kcli worker deployment describe --name "$DEPLOYMENT_NAME" -o json 2>/dev/null \
     | python3 -c 'import json,sys
 try:
     d = json.load(sys.stdin)
@@ -126,7 +126,7 @@ if [[ -z "$current_build" || "$current_build" == "__unversioned__" ]]; then
   echo
   echo "==> No Current version yet; nothing to ramp against."
   echo "    Promoting ${BUILD_ID} to Current directly."
-  tcli worker deployment set-current-version \
+  kcli worker deployment set-current-version \
     --deployment-name "$DEPLOYMENT_NAME" --build-id "$BUILD_ID" --yes
   print_state
   exit 0
@@ -139,7 +139,7 @@ for step in "${step_list[@]}"; do
 
   echo
   echo "==> Ramping to ${step}% of new executions"
-  tcli worker deployment set-ramping-version \
+  kcli worker deployment set-ramping-version \
     --deployment-name "$DEPLOYMENT_NAME" --build-id "$BUILD_ID" \
     --percentage "$step" --yes
 
@@ -153,7 +153,7 @@ echo "==> All steps passed; promoting ${BUILD_ID} to Current"
 # Promoting clears the ramp automatically -- the version goes to 100%.
 # No --allow-no-pollers: if the workers stopped polling, this fails and the
 # old version stays Current.
-tcli worker deployment set-current-version \
+kcli worker deployment set-current-version \
   --deployment-name "$DEPLOYMENT_NAME" --build-id "$BUILD_ID" --yes
 
 print_state

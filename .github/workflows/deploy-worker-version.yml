@@ -34,7 +34,7 @@ on:
         required: false
         default: "0"
       cleanup:
-        description: "Also delete Kubernetes Deployments for versions that have fully drained"
+        description: "Also retire fully drained versions: their Kubernetes Deployments and their server-side version records"
         type: boolean
         required: false
         default: false
@@ -96,7 +96,11 @@ jobs:
 
       - name: Clean up drained versions
         if: github.event.inputs.cleanup == 'true'
-        run: scripts/cleanup-drained.sh
+        # --wait 0 so the job never blocks on the server's poller timeout, which
+        # runs about five minutes past the last worker exiting. The pods are
+        # deleted now; any version whose pollers have not expired yet is deleted
+        # by the next run, which finds it as a version with no Deployment left.
+        run: scripts/cleanup-drained.sh --wait 0
 
       - name: Summary
         if: always()

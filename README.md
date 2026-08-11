@@ -1,13 +1,8 @@
 # Temporal Worker Versioning, driven by GitHub Actions
 
-A small Temporal Python application that shows the whole loop:
+A simple Temporal Python application that shows the integration of Temporal Worker Versioning and Github Actions. The whole loop:
 
 > **push a workflow change → GitHub Actions builds it → a new Worker Deployment Version appears in minikube → new executions move to it → executions already running finish on the old version.**
-
-The point of the demo is that last clause. Rolling out new workflow code is not
-a normal rolling update: a workflow execution that started on old code may need
-that old code for hours or weeks. Worker Versioning lets you keep both versions
-running and let the server decide which one each execution belongs to.
 
 ---
 
@@ -18,14 +13,17 @@ running and let the server decide which one each execution belongs to.
 | [worker/workflows.py](worker/workflows.py) | The workflows. **Edit this to trigger the demo.** |
 | [worker/run_worker.py](worker/run_worker.py) | Worker entrypoint — where versioning is configured |
 | [worker/starter.py](worker/starter.py) | CLI to start / signal / inspect workflows |
+|  
 | [k8s/temporal-server.yaml](k8s/temporal-server.yaml) | A Temporal dev server for minikube |
 | [k8s/worker-deployment.template.yaml](k8s/worker-deployment.template.yaml) | One K8s Deployment per Build ID |
+|
 | [scripts/progressive-rollout.sh](scripts/progressive-rollout.sh) | **Staged ramp with health gates and rollback. What CI runs.** |
 | [scripts/deploy-version.sh](scripts/deploy-version.sh) | Straight to 100% — the unguarded manual path |
 | [scripts/common.sh](scripts/common.sh) | Shared helpers: build, deploy, query the server |
 | [scripts/port-forward.sh](scripts/port-forward.sh) | Reach the in-cluster server from your machine |
-| [scripts/cleanup-drained.sh](scripts/cleanup-drained.sh) | Remove versions nothing is pinned to any more |
+| [scripts/cleanup-drained.sh](scripts/cleanup-drained.sh) | Retire versions nothing is pinned to any more — pods *and* server-side version |
 | [scripts/status.sh](scripts/status.sh) | Temporal's view and Kubernetes' view, side by side |
+|
 | [.github/workflows/deploy-worker-version.yml](.github/workflows/deploy-worker-version.yml) | The CI pipeline |
 
 ## How the versioning works
@@ -140,7 +138,7 @@ waits for those pods to poll, then ramps traffic onto the new version in
 stages — checking its health at each one — before promoting it to Current. See
 [Progressive rollout](#progressive-rollout) below.
 
-Locally, the same thing:
+Without github actions, you can the script locally to do the same thing:
 
 ```bash
 ./scripts/progressive-rollout.sh v2 --bake 15
@@ -168,7 +166,7 @@ python starter.py approve greeting-8eb8dd74
 # result: {'greeting': 'Hello, Alice! (served by build v1)', 'recorded_by': 'v1'}
 ```
 
-That is Worker Versioning doing its job. Without it, that run would have picked
+Without worker versioning, the old workflow run would have picked
 up the new code mid-execution and risked a non-determinism error.
 
 **5. Retire the old version** once nothing is pinned to it:
@@ -179,11 +177,29 @@ up the new code mid-execution and risked a non-determinism error.
 ```
 
 `v1` reports `draining` while Alice's workflow is open, and `drained` once it
-completes — only then is its Deployment deleted.
+completes. Only then is it retired, and retiring it means **both** halves:
 
-Drainage is evaluated on a timer, not instantly, so expect roughly a minute
-between the last pinned workflow closing and the status flipping. The demo
-server shortens that interval on purpose — see the `--dynamic-config-value`
+1. its Kubernetes Deployment `worker-v1` is deleted, and
+2. the `versioning-greeting-worker:v1` Worker Deployment Version record is
+   deleted from the Temporal server.
+
+The order is forced by the server, which refuses to delete a version that still
+has active pollers — so the pods have to go first. The server then keeps poller
+information for about five minutes after the last worker process exits, so the
+script retries the version delete for up to `--wait` seconds (default 420):
+
+```bash
+./scripts/cleanup-drained.sh --wait 0    # never block; finish next run
+```
+
+With `--wait 0` the pods are deleted and the version is left on the server; the
+next run deletes it, having found it as a version with no Deployment behind it.
+Either way cleanup converges, so a version that outlives one run is reported
+rather than treated as a failure.
+
+Drainage itself is evaluated on a timer, not instantly, so expect roughly a
+minute between the last pinned workflow closing and the status flipping. The
+demo server shortens that interval on purpose — see the `--dynamic-config-value`
 flags in [k8s/temporal-server.yaml](k8s/temporal-server.yaml), which you should
 *not* carry into production.
 
@@ -277,8 +293,11 @@ runner can reach.
   on the previous version.
 - The CI job uses a `concurrency` group so two pushes can't race to change
   routing at the same time.
-- Pinned versions accumulate if you never clean them up. `cleanup-drained.sh`
-  is safe to run on a schedule.
+- Pinned versions accumulate if you never clean them up, in Kubernetes *and* on
+  the server. `cleanup-drained.sh` is safe to run on a schedule and is
+  idempotent: deleting an already-absent version succeeds, and anything it
+  cannot finish this run it finishes on the next one. For a scheduled job,
+  `--wait 0` keeps it from blocking on poller timeouts.
 
 ## Cleanup
 

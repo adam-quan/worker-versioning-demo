@@ -10,9 +10,13 @@ REPLICAS="${REPLICAS:-2}"
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
-# Run the Temporal CLI inside the server pod. The image already ships the CLI,
-# so CI needs no extra tooling and no network path into the cluster.
-tcli() {
+# Run the Temporal CLI inside the server pod, via kubectl. The image already
+# ships the CLI, so CI needs no extra tooling and no network path into the
+# cluster.
+#
+# Named for the `kubectl` it goes through, and deliberately not anything close
+# to `tctl` -- that is the *deprecated* CLI, which this repo does not use.
+kcli() {
   kubectl exec -n "$NAMESPACE" deploy/temporal -- \
     temporal --address localhost:7233 "$@"
 }
@@ -47,7 +51,7 @@ build_and_deploy() {
   # Routing to it before then would fail, so wait for it to show up.
   local attempt
   for attempt in $(seq 1 60); do
-    if tcli worker deployment describe-version \
+    if kcli worker deployment describe-version \
         --deployment-name "$DEPLOYMENT_NAME" --build-id "$build_id" >/dev/null 2>&1; then
       echo "    registered after ${attempt} attempt(s)"
       return 0
@@ -68,14 +72,14 @@ count_executions() {
   local build_id="$1" extra="${2:-}"
   local query="TemporalWorkerDeploymentVersion='${DEPLOYMENT_NAME}:${build_id}'"
   [[ -n "$extra" ]] && query="${query} AND ${extra}"
-  tcli workflow count --query "$query" 2>/dev/null \
+  kcli workflow count --query "$query" 2>/dev/null \
     | awk '/^Total:/ {print $2; found=1} END {if (!found) print 0}'
 }
 
 print_state() {
   echo
   echo "==> Worker Deployment state"
-  tcli worker deployment describe --name "$DEPLOYMENT_NAME"
+  kcli worker deployment describe --name "$DEPLOYMENT_NAME"
   echo
   echo "==> Worker Deployments running in Kubernetes"
   kubectl get deployments -n "$NAMESPACE" -l app=versioning-greeting-worker -L build-id
